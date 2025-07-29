@@ -8,7 +8,7 @@ require_once 'connection.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trusted Veterinary Clinic</title>
+    <title>Veterinary Clinic</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Google Fonts -->
@@ -97,7 +97,7 @@ require_once 'connection.php';
             <div class="paw-icon">
                 <i class="fas fa-paw"></i>
             </div>
-            <h1 class="clinic-name">TRUSTED VETERINARY CLINIC</h1>
+            <h1 class="clinic-name">VETERINARY CLINIC</h1>
             <p class="tagline">Exceptional care for your beloved pets</p>
             <a href="login.php" class="btn-getstart">
                 Get Started <i class="fas fa-arrow-right ms-2"></i>
@@ -111,3 +111,8 @@ require_once 'connection.php';
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
+<?php
+// Close database connection
+$conn->close();
+?>
