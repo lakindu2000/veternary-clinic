@@ -1,3 +1,11 @@
+<?php
+include 'db_connection.php';
+?>
+
+
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,9 +44,10 @@
                     <a href="#" class="list-group-item list-group-item-action active border-0 rounded mb-2">
                         <i class="fas fa-home me-3"></i>Dashboard
                     </a>
-                    <a href="#" class="list-group-item list-group-item-action border-0 rounded mb-2">
+                    <a href="profile.php" class="list-group-item list-group-item-action border-0 rounded mb-2">
                         <i class="fas fa-user me-3"></i>Profile View
                     </a>
+
                     <a href="#" class="list-group-item list-group-item-action border-0 rounded mb-2">
                         <i class="fas fa-users me-3"></i>Patients
                     </a>
