@@ -1,6 +1,6 @@
 <?php
 $servername = "localhost";
-$username = "root"; // Default XAMPP username
+$username = "root"; // Default XAMPP usernames
 $password = "";     // Default XAMPP has no password
 $database = "vet_clinic";
 
