@@ -155,80 +155,8 @@
                             </div>
                         </div>
 
-                        <!-- Appointment Item 4 -->
-                        <div class="p-3 border-bottom">
-                            <div class="d-flex align-items-center mb-2">
-                                <img src="https://via.placeholder.com/40x40?text=LW" alt="Patient" class="rounded-circle me-3" style="width: 40px; height: 40px;">
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-0">Lisa Wilson</h6>
-                                    <small class="text-muted">Emergency</small>
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="badge bg-danger">1:00 PM</span>
-                                <small class="text-success"><i class="fas fa-check-circle"></i> Confirmed</small>
-                            </div>
-                        </div>
 
-                        <!-- Appointment Item 5 -->
-                        <div class="p-3 border-bottom">
-                            <div class="d-flex align-items-center mb-2">
-                                <img src="https://via.placeholder.com/40x40?text=DM" alt="Patient" class="rounded-circle me-3" style="width: 40px; height: 40px;">
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-0">David Miller</h6>
-                                    <small class="text-muted">Routine Checkup</small>
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="badge bg-primary">2:30 PM</span>
-                                <small class="text-success"><i class="fas fa-check-circle"></i> Confirmed</small>
-                            </div>
-                        </div>
-
-                        <!-- Appointment Item 6 -->
-                        <div class="p-3 border-bottom">
-                            <div class="d-flex align-items-center mb-2">
-                                <img src="https://via.placeholder.com/40x40?text=AB" alt="Patient" class="rounded-circle me-3" style="width: 40px; height: 40px;">
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-0">Anna Brown</h6>
-                                    <small class="text-muted">Follow-up</small>
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="badge bg-primary">3:45 PM</span>
-                                <small class="text-warning"><i class="fas fa-clock"></i> Pending</small>
-                            </div>
-                        </div>
-
-                        <!-- Appointment Item 7 -->
-                        <div class="p-3 border-bottom">
-                            <div class="d-flex align-items-center mb-2">
-                                <img src="https://via.placeholder.com/40x40?text=TG" alt="Patient" class="rounded-circle me-3" style="width: 40px; height: 40px;">
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-0">Tom Garcia</h6>
-                                    <small class="text-muted">Consultation</small>
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="badge bg-primary">4:15 PM</span>
-                                <small class="text-success"><i class="fas fa-check-circle"></i> Confirmed</small>
-                            </div>
-                        </div>
-
-                        <!-- Appointment Item 8 -->
-                        <div class="p-3">
-                            <div class="d-flex align-items-center mb-2">
-                                <img src="https://via.placeholder.com/40x40?text=SD" alt="Patient" class="rounded-circle me-3" style="width: 40px; height: 40px;">
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-0">Sophie Davis</h6>
-                                    <small class="text-muted">Routine Checkup</small>
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="badge bg-primary">5:00 PM</span>
-                                <small class="text-success"><i class="fas fa-check-circle"></i> Confirmed</small>
-                            </div>
-                        </div>
+                     
                     </div>
                 </div>
             </div>
