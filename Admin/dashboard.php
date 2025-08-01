@@ -283,7 +283,7 @@
             <div class="sidebar">
                 <div class="w-100 d-flex flex-column align-items-start">
                     <a class="link active" href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-                    <a class="link" href="appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a>
+                    <a class="link" href="appointment.php"><i class="fas fa-calendar-check"></i> Appointments</a>
                     <a class="link" href="patients.php"><i class="fas fa-paw"></i> Patients</a>
                     <a class="link" href="billing.php"><i class="fas fa-receipt"></i> Billing</a>
                     <a class="link" href="profile.php"><i class="fas fa-user"></i> Profile</a>
