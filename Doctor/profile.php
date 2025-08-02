@@ -1,176 +1,225 @@
 <?php
-include 'db_connection.php';
+session_start();
 
-$sql = "SELECT * FROM doctors";
-$result = $conn->query($sql);
-
-if ($result->num_rows > 0) {
-    while($row = $result->fetch_assoc()) {
-        echo "Doctor: " . $row["name"] . "<br>";
-    }
-} else {
-    echo "No data found.";
+if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'doctor') {
+    header("Location: ../login.php");
+    exit();
 }
+
+require_once '../connection.php';
+
+$user_id = $_SESSION['user_id'];
+$message = "";
+
+// Handle form submission for updates
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_changes'])) {
+    $name = $_POST['name'];
+    $specialization = $_POST['specialization'];
+    $phone = $_POST['phone'];
+    $address = $_POST['address'];
+    $specification = $_POST['specification'];
+
+    $photoPath = '';
+    if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+        $targetDir = "../uploads/";
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0777, true);
+        }
+
+        $fileName = basename($_FILES["photo"]["name"]);
+        $targetFile = $targetDir . uniqid() . "_" . $fileName;
+
+        if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFile)) {
+            $photoPath = $targetFile;
+        }
+    }
+
+    $query = "UPDATE doctors SET name=?, specialization=?, phone=?, address=?, specification=?";
+    if ($photoPath !== '') {
+        $query .= ", photo=?";
+    }
+    $query .= " WHERE user_id=?";
+
+    $stmt = $conn->prepare($query);
+    if ($photoPath !== '') {
+        $stmt->bind_param("ssssssi", $name, $specialization, $phone, $address, $specification, $photoPath, $user_id);
+    } else {
+        $stmt->bind_param("sssssi", $name, $specialization, $phone, $address, $specification, $user_id);
+    }
+
+    if ($stmt->execute()) {
+        $message = "Profile updated successfully.";
+    } else {
+        $message = "Failed to update profile.";
+    }
+    $stmt->close();
+}
+
+// Fetch doctor data
+$stmt = $conn->prepare("SELECT * FROM doctors WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$doctor = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 $conn->close();
 ?>
-
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doctor Profile</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Bootstrap -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .profile-pic {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 4px solid #4e8cff;
+        }
+        .upload-label {
+            font-size: 0.9rem;
+            color: #555;
+        }
+        input[readonly], textarea[readonly] {
+            background-color: #f8f9fa;
+        }
+    </style>
 </head>
 <body class="bg-light">
-    <!-- Header Section -->
-    <div class="row g-0" style="background-color: #4e8cff;">
-        <div class="col-12 p-3">
-            <div class="d-flex align-items-center">
-                <div class="me-3">
-                    <img src="Loosy.png" alt="Doctor Photo" class="rounded-circle border border-white border-3" style="width: 60px; height: 60px;">
-                </div>
-                <div class="flex-grow-1 text-center">
-                    <h3 class="text-white mb-0 fw-bold">Dr. Sarah Johnson</h3>
-                    <p class="text-white-50 mb-0">Cardiologist</p>
-                </div>
-                <div class="me-3">
-                    <i class="fas fa-bell text-white fs-4"></i>
-                </div>
+
+<!-- Header -->
+<div class="row g-0" style="background-color: #4e8cff;">
+    <div class="col-12 p-3 text-center">
+        <h3 class="text-white fw-bold"><?php echo htmlspecialchars($doctor['name']); ?> - Profile</h3>
+    </div>
+</div>
+
+<!-- Layout -->
+<div class="row g-0 min-vh-100">
+    <!-- Sidebar -->
+    <div class="col-3 bg-white shadow-sm">
+        <div class="p-3">
+            <div class="list-group list-group-flush">
+                <a href="dashboard.php" class="list-group-item list-group-item-action border-0 mb-2">
+                    <i class="fas fa-home me-2"></i> Dashboard
+                </a>
+                <a href="profile.php" class="list-group-item list-group-item-action active border-0 mb-2">
+                    <i class="fas fa-user me-2"></i> Profile View
+                </a>
+                <a href="patients.php" class="list-group-item list-group-item-action border-0 mb-2">
+                    <i class="fas fa-users me-2"></i> Patients
+                </a>
+                <a href="add_health.php" class="list-group-item list-group-item-action border-0 mb-2">
+                    <i class="fas fa-notes-medical me-2"></i> Add Health Details
+                </a>
+                <a href="../logout.php" class="list-group-item list-group-item-action border-0 mb-2 text-danger">
+                    <i class="fas fa-sign-out-alt me-2"></i> Log Out
+                </a>
             </div>
         </div>
     </div>
 
-    <!-- Main Layout -->
-    <div class="row g-0 min-vh-100">
-        <!-- Left Sidebar -->
-        <div class="col-3 bg-white shadow-sm">
-            <div class="p-3">
-                <div class="list-group list-group-flush">
-                    <a href="dashboard.php" class="list-group-item list-group-item-action border-0 rounded mb-2">
-                        <i class="fas fa-home me-3"></i>Dashboard
-                    </a>
-                    <a href="profile.php" class="list-group-item list-group-item-action active border-0 rounded mb-2">
-                        <i class="fas fa-user me-3"></i>Profile View
-                    </a>
-                    <a href="#" class="list-group-item list-group-item-action border-0 rounded mb-2">
-                        <i class="fas fa-users me-3"></i>Patients
-                    </a>
-                    <a href="#" class="list-group-item list-group-item-action border-0 rounded mb-2">
-                        <i class="fas fa-plus-circle me-3"></i>Add Health Details
-                    </a>
-                    <a href="#" class="list-group-item list-group-item-action border-0 rounded mb-2 text-danger">
-                        <i class="fas fa-sign-out-alt me-3"></i>Log Out
-                    </a>
-                </div>
-            </div>
-        </div>
+    <!-- Profile Content -->
+    <div class="col-9 p-4">
+        <div class="card shadow-sm p-4">
+            <h4 class="mb-3">Doctor Profile</h4>
 
-        <!-- Profile View Content -->
-        <div class="col-9 p-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0">
-                    <h4 class="mb-0">Doctor Profile</h4>
-                </div>
-                <div class="card-body">
-                    <div class="text-center mb-4">
-                        <img id="doctorPhoto" src="doctor_photo.jpg" alt="Doctor Photo" class="rounded-circle border border-primary" style="width: 120px; height: 120px; object-fit: cover;">
-                    </div>
+            <?php if (!empty($message)): ?>
+                <div class="alert alert-info"><?php echo $message; ?></div>
+            <?php endif; ?>
 
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Doctor ID</label>
-                            <input type="text" class="form-control" id="doctorId" disabled>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">User ID</label>
-                            <input type="text" class="form-control" id="userId" disabled>
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Name</label>
-                            <input type="text" class="form-control editable" id="name" disabled>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Specialization</label>
-                            <input type="text" class="form-control editable" id="specification" disabled>
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Phone</label>
-                            <input type="text" class="form-control editable" id="phone" disabled>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Address</label>
-                            <input type="text" class="form-control editable" id="address" disabled>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Description</label>
-                        <textarea class="form-control editable" id="description" rows="3" disabled></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Upload New Photo</label>
-                        <input type="file" class="form-control editable" id="photoInput" disabled>
-                    </div>
-
-                    <div class="text-end">
-                        <button class="btn btn-primary me-2" onclick="enableEdit()" id="editBtn">Edit Profile</button>
-                        <button class="btn btn-success d-none" onclick="saveProfile()" id="saveBtn">Save Changes</button>
+            <form method="POST" enctype="multipart/form-data" id="profileForm">
+                <div class="mb-4 text-center">
+                    <img src="<?php echo $doctor['photo'] ? htmlspecialchars($doctor['photo']) : '../assets/default-avatar.png'; ?>" class="profile-pic mb-2" alt="Profile Picture">
+                    <div class="upload-label w-25 mx-auto text-center">
+                        <input type="file" name="photo" id="photoInput" class="form-control form-control-sm d-none">
+                        
                     </div>
                 </div>
-            </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label>ID</label>
+                        <input type="text" name="id" class="form-control" value="<?php echo $doctor['id']; ?>" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label>Name</label>
+                        <input type="text" name="name" class="form-control" value="<?php echo htmlspecialchars($doctor['name']); ?>" readonly>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label>Specialization</label>
+                        <input type="text" name="specialization" class="form-control" value="<?php echo htmlspecialchars($doctor['specialization']); ?>" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label>Phone</label>
+                        <input type="text" name="phone" class="form-control" style="max-width: 300px;" value="<?php echo htmlspecialchars($doctor['phone']); ?>" readonly>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label>Address</label>
+                        <textarea name="address" class="form-control" rows="2" style="max-width: 500px;" readonly><?php echo htmlspecialchars($doctor['address']); ?></textarea>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="md-12">
+                        <label>Specification</label>
+                        <textarea name="specification" class="form-control" rows="2" readonly><?php echo htmlspecialchars($doctor['specification']); ?></textarea>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end">
+                    <button type="button" class="btn btn-primary me-2 w-25" id="editBtn">Edit</button>
+                    <button type="submit" name="save_changes" class="btn btn-success me-2 d-none" id="saveBtn">Save Changes</button>
+                    <button type="button" class="btn btn-secondary d-none" id="cancelBtn">Cancel</button>
+                </div>
+            </form>
         </div>
     </div>
+</div>
 
-    <script>
-        const doctorData = {
-            id: 1,
-            user_id: 101,
-            name: "Dr. Sarah Johnson",
-            specification: "Cardiologist",
-            phone: "0771234567",
-            address: "123, Colombo Road, Sri Lanka",
-            description: "Experienced cardiologist with over 10 years in the field.",
-            photo: "doctor_photo.jpg"
-        };
+<!-- Script -->
+<script>
+    const editBtn = document.getElementById('editBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const form = document.getElementById('profileForm');
+    const inputs = form.querySelectorAll('input[name]:not([name="id"]):not([type="file"]), textarea[name]');
 
-        window.onload = function () {
-            document.getElementById('doctorId').value = doctorData.id;
-            document.getElementById('userId').value = doctorData.user_id;
-            document.getElementById('name').value = doctorData.name;
-            document.getElementById('specification').value = doctorData.specification;
-            document.getElementById('phone').value = doctorData.phone;
-            document.getElementById('address').value = doctorData.address;
-            document.getElementById('description').value = doctorData.description;
-            document.getElementById('doctorPhoto').src = doctorData.photo;
-        };
+    let initialValues = [];
 
-        function enableEdit() {
-            document.querySelectorAll('.editable').forEach(input => {
-                input.disabled = false;
-            });
-            document.getElementById('editBtn').classList.add('d-none');
-            document.getElementById('saveBtn').classList.remove('d-none');
-        }
+    editBtn.addEventListener('click', () => {
+        inputs.forEach((input, i) => {
+            initialValues[i] = input.value;
+            input.removeAttribute('readonly');
+        });
+        document.getElementById('photoInput').classList.remove('d-none');
+        editBtn.classList.add('d-none');
+        saveBtn.classList.remove('d-none');
+        cancelBtn.classList.remove('d-none');
+    });
 
-        function saveProfile() {
-            // You can add code here to send the updated data to the server via AJAX or form submission.
-            alert('Profile changes saved!');
-            document.querySelectorAll('.editable').forEach(input => {
-                input.disabled = true;
-            });
-            document.getElementById('editBtn').classList.remove('d-none');
-            document.getElementById('saveBtn').classList.add('d-none');
-        }
-    </script>
+    cancelBtn.addEventListener('click', () => {
+        inputs.forEach((input, i) => {
+            input.value = initialValues[i];
+            input.setAttribute('readonly', true);
+        });
+        document.getElementById('photoInput').classList.add('d-none');
+        editBtn.classList.remove('d-none');
+        saveBtn.classList.add('d-none');
+        cancelBtn.classList.add('d-none');
+    });
+</script>
+
 </body>
 </html>
