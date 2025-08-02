@@ -1,3 +1,91 @@
+
+<?php
+    require_once '../connection.php';
+
+    // Function to get counts from database
+    function getDashboardCounts($conn) {
+        $counts = [
+            'patients' => 0,
+            'doctors' => 0,
+            'appointments' => 0
+        ];
+        
+        // Get total patients count
+        $query = "SELECT COUNT(id) as count FROM patients";
+        $result = $conn->query($query);
+        if ($result && $row = $result->fetch_assoc()) {
+            $counts['patients'] = $row['count'];
+        }
+        
+        // Get active doctors count
+        $query = "SELECT COUNT(id) as count FROM doctors";
+        $result = $conn->query($query);
+        if ($result && $row = $result->fetch_assoc()) {
+            $counts['doctors'] = $row['count'];
+        }
+        
+        // Get today's upcoming appointments count
+        $today = date('Y-m-d');
+        $query = "SELECT COUNT(id) as count FROM appointments WHERE appointment_date = '$today' AND status = 'scheduled'";
+        $result = $conn->query($query);
+        if ($result && $row = $result->fetch_assoc()) {
+            $counts['appointments'] = $row['count'];
+        }
+        
+        return $counts;
+    }
+
+    // Function to get today's appointments
+    function getTodaysAppointments($conn) {
+        $appointments = [];
+        $today = date('Y-m-d');
+
+        $query = "SELECT a.appointment_time, p.name, p.species, a.reason 
+                FROM appointments a
+                JOIN patients p ON a.patient_id = p.id
+                WHERE a.appointment_date = '$today' AND a.status = 'scheduled'
+                ORDER BY a.appointment_time ASC";
+        
+        $result = $conn->query($query);
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $appointments[] = $row;
+            }
+        }
+        
+        return $appointments;
+    }
+
+    // Function to get monthly appointment data for chart
+    function getMonthlyAppointmentData($conn) {
+        $monthlyData = array_fill(0, 12, 0); // Initialize array for 12 months
+        
+        // Get current year
+        $currentYear = date('Y');
+        
+        $query = "SELECT MONTH(appointment_date) as month, COUNT(id) as count 
+                FROM appointments 
+                WHERE YEAR(appointment_date) = '$currentYear'
+                GROUP BY MONTH(appointment_date)";
+        
+        $result = $conn->query($query);
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $monthIndex = $row['month'] - 1; // Convert to 0-based index
+                $monthlyData[$monthIndex] = $row['count'];
+            }
+        }
+        
+        return $monthlyData;
+    }
+
+    // Get all data
+    $counts = getDashboardCounts($conn);
+    $todaysAppointments = getTodaysAppointments($conn);
+    $monthlyAppointments = getMonthlyAppointmentData($conn);
+?>
+
+
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -275,7 +363,9 @@
         <div class="navbar">
             <div class="admin-info">
                 <img src="../assets/cat.jpg" class="profile-img">
-                <span class="admin-name-nav">Timasha Wanninayaka</span>
+
+                <span class="admin-name-nav"><?php echo htmlspecialchars($_SESSION['admin_name'] ?? 'Admin'); ?></span>
+
             </div>
         </div>
         
@@ -283,7 +373,9 @@
             <div class="sidebar">
                 <div class="w-100 d-flex flex-column align-items-start">
                     <a class="link active" href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-                    <a class="link" href="appointment.php"><i class="fas fa-calendar-check"></i> Appointments</a>
+
+           
+                    <a class="link" href="appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a>
                     <a class="link" href="patients.php"><i class="fas fa-paw"></i> Patients</a>
                     <a class="link" href="billing.php"><i class="fas fa-receipt"></i> Billing</a>
                     <a class="link" href="profile.php"><i class="fas fa-user"></i> Profile</a>
@@ -299,21 +391,26 @@
                             <div class="card card-green">
                                 <div class="card-body">
                                     <h5 class="card-title">Total<br /> Patients</h5>
-                                    <p class="card-text" id="patients-count">0</p>
+                      
+                                    <p class="card-text" id="patients-count"><?php echo $counts['patients']; ?></p>
+
                                 </div>
                             </div>
 
                             <div class="card card-yellow">
                                 <div class="card-body">
                                     <h5 class="card-title">Active<br /> Doctors</h5>
-                                    <p class="card-text" id="doctors-count">0</p>
+
+                   
+                                    <p class="card-text" id="doctors-count"><?php echo $counts['doctors']; ?></p>
                                 </div>
                             </div>
 
                             <div class="card card-red">
                                 <div class="card-body">
                                     <h5 class="card-title">Upcoming Appointments</h5>
-                                    <p class="card-text" id="appointments-count">0</p>
+                                    
+                                    <p class="card-text" id="appointments-count"><?php echo $counts['appointments']; ?></p>
                                 </div>
                             </div>
                         </div>
@@ -329,52 +426,31 @@
                     <div class="right-column">
                         <div class="appointments-container">
                             <h5 class="section-title">Today's Appointments</h5>
+
+                           
+                         
+                            <p class="current-date" style="font-size: 12px; color: black;"><?php echo date('F j, Y'); ?></p>
                             <div class="appointments-list">
-                                <div class="appointment-item">
-                                    <span class="appointment-time">09:00 AM</span>
-                                    <span class="appointment-patient">Max (Golden Retriever) - Annual Checkup</span>
-                                </div>
-                                <div class="appointment-item">
-                                    <span class="appointment-time">11:30 AM</span>
-                                    <span class="appointment-patient">Bella (Persian Cat) - Vaccination</span>
-                                </div>
-                                <div class="appointment-item">
-                                    <span class="appointment-time">02:15 PM</span>
-                                    <span class="appointment-patient">Rocky (German Shepherd) - Injury Follow-up</span>
-                                </div>
-                                <div class="appointment-item">
-                                    <span class="appointment-time">04:45 PM</span>
-                                    <span class="appointment-patient">Luna (Siamese Cat) - Dental Cleaning</span>
-                                </div>
-                                <div class="appointment-item">
-                                    <span class="appointment-time">05:15 PM</span>
-                                    <span class="appointment-patient">Sina (German Shepherd) - Dental Cleaning</span>
-                                </div>
-                                <div class="appointment-item">
-                                    <span class="appointment-time">11:30 AM</span>
-                                    <span class="appointment-patient">Bella (Persian Cat) - Vaccination</span>
-                                </div>
-                                <div class="appointment-item">
-                                    <span class="appointment-time">03:00 PM</span>
-                                    <span class="appointment-patient">Charlie (Bulldog) - Skin Allergy</span>
-                                </div>
+                                <?php foreach ($todaysAppointments as $appointment): ?>
+                                    <div class="appointment-item">
+                                        <span class="appointment-time"><?php echo date('h:i A', strtotime($appointment['appointment_time'])); ?></span>
+                                        <span class="appointment-patient">
+                                            <?php echo htmlspecialchars($appointment['name'] . ' (' . htmlspecialchars($appointment['species']) . ') - ' . htmlspecialchars($appointment['reason'])); ?>
+                                        </span>
+                                    </div>
+                                <?php endforeach; ?>
+                                <?php if (empty($todaysAppointments)): ?>
+                                    <div class="text-center py-3">No appointments scheduled for today</div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        
-
+            
         <script>
-            const patientsCount = 142;
-            const doctorsCount = 8;
-            const appointmentsCount = 17;
-            
-            document.getElementById('patients-count').textContent = patientsCount;
-            document.getElementById('doctors-count').textContent = doctorsCount;
-            document.getElementById('appointments-count').textContent = appointmentsCount;
-            
+
             const ctx = document.getElementById('lineChart').getContext('2d');
             new Chart(ctx, {
                 type: 'line',
@@ -382,7 +458,9 @@
                     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
                     datasets: [{
                         label: 'Appointments',
-                        data: [120, 135, 150, 140, 175, 180, 150, 200, 170, 220, 230, 240],
+               
+                        data: <?php echo json_encode($monthlyAppointments); ?>,
+
                         borderColor: 'rgba(78, 140, 255, 1)',
                         backgroundColor: 'rgba(78, 140, 255, 0.1)',
                         borderWidth: 2,
