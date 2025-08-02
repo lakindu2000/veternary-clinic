@@ -1,3 +1,4 @@
+
 <?php
     require_once '../connection.php';
 
@@ -83,6 +84,7 @@
     $todaysAppointments = getTodaysAppointments($conn);
     $monthlyAppointments = getMonthlyAppointmentData($conn);
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -361,7 +363,9 @@
         <div class="navbar">
             <div class="admin-info">
                 <img src="../assets/cat.jpg" class="profile-img">
+
                 <span class="admin-name-nav"><?php echo htmlspecialchars($_SESSION['admin_name'] ?? 'Admin'); ?></span>
+
             </div>
         </div>
         
@@ -369,6 +373,8 @@
             <div class="sidebar">
                 <div class="w-100 d-flex flex-column align-items-start">
                     <a class="link active" href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+
+           
                     <a class="link" href="appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a>
                     <a class="link" href="patients.php"><i class="fas fa-paw"></i> Patients</a>
                     <a class="link" href="billing.php"><i class="fas fa-receipt"></i> Billing</a>
@@ -385,13 +391,17 @@
                             <div class="card card-green">
                                 <div class="card-body">
                                     <h5 class="card-title">Total<br /> Patients</h5>
+                      
                                     <p class="card-text" id="patients-count"><?php echo $counts['patients']; ?></p>
+
                                 </div>
                             </div>
 
                             <div class="card card-yellow">
                                 <div class="card-body">
                                     <h5 class="card-title">Active<br /> Doctors</h5>
+
+                   
                                     <p class="card-text" id="doctors-count"><?php echo $counts['doctors']; ?></p>
                                 </div>
                             </div>
@@ -399,6 +409,7 @@
                             <div class="card card-red">
                                 <div class="card-body">
                                     <h5 class="card-title">Upcoming Appointments</h5>
+                                    
                                     <p class="card-text" id="appointments-count"><?php echo $counts['appointments']; ?></p>
                                 </div>
                             </div>
@@ -415,6 +426,9 @@
                     <div class="right-column">
                         <div class="appointments-container">
                             <h5 class="section-title">Today's Appointments</h5>
+
+                           
+                         
                             <p class="current-date" style="font-size: 12px; color: black;"><?php echo date('F j, Y'); ?></p>
                             <div class="appointments-list">
                                 <?php foreach ($todaysAppointments as $appointment): ?>
@@ -434,8 +448,9 @@
                 </div>
             </div>
         </div>
-        
+            
         <script>
+
             const ctx = document.getElementById('lineChart').getContext('2d');
             new Chart(ctx, {
                 type: 'line',
@@ -443,7 +458,9 @@
                     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
                     datasets: [{
                         label: 'Appointments',
+               
                         data: <?php echo json_encode($monthlyAppointments); ?>,
+
                         borderColor: 'rgba(78, 140, 255, 1)',
                         backgroundColor: 'rgba(78, 140, 255, 0.1)',
                         borderWidth: 2,
