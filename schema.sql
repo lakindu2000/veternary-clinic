@@ -81,7 +81,7 @@ ALTER TABLE appointments ADD COLUMN appointment_number INT NOT NULL;
 
 
 --2025/08/03 updated(Gayan)
-ALTER TABLE doctors ADD specification TEXT NOT NULL AFTER address;
+ALTER TABLE doctors ADD COLUMN specification TEXT NOT NULL AFTER address;
 ALTER TABLE doctors ADD COLUMN photo VARCHAR(255);
 
 CREATE TABLE medical_records (
