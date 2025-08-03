@@ -1,5 +1,6 @@
 <?php
     require_once '../connection.php';
+    require_once '../Lib/phpqrcode/qrlib.php'; 
     session_start();
 
     // Initialize variables
@@ -54,6 +55,22 @@
             $stmt->bind_param("ssssssss", $patient_name, $species, $breed, $age, $owner_name, $owner_id_num, $owner_phone, $email);
             $stmt->execute();
             $patient_id = $conn->insert_id;
+
+            //Prepare data for QR code
+            $qr_data = "Patient ID: $patient_id\nName: $patient_name\nSpecies: $species\nBreed: $breed\nAge: $age\nOwner: $owner_name\nPhone: $owner_phone";
+
+             //Generate QR code image
+            $qr_dir = "../qrcodes/";
+            if (!file_exists($qr_dir)) {
+                mkdir($qr_dir, 0777, true);
+            }
+            $qr_filename = $qr_dir . "patient_" . $patient_id . ".png";
+            QRcode::png($qr_data, $qr_filename, QR_ECLEVEL_L, 5);
+
+            $patient['qr_code'] = "qrcodes/patient_" . $patient_id . ".png";
+
+
+
             $patient = [
                 'id' => $patient_id,
                 'name' => $patient_name,
@@ -438,6 +455,16 @@
             <div class="content-wrapper">
             <?= $msg ?>
 
+            <?php if (!empty($patient['qr_code'])): ?>
+                <div style="margin-top: 20px;">
+                    <h3>Patient QR Code</h3>
+                    <img src="<?= $patient['qr_code'] ?>" alt="QR Code" style="width: 200px; height: 200px;">
+                    <br><br>
+                    <a href="<?= $patient['qr_code'] ?>" download class="btn btn-primary">Download QR Code</a>
+                </div>
+            <?php endif; ?>
+            
+
             <!-- Search Form -->
             <div class="form-section no-print">
                 <h4>Patient Search</h4>
@@ -622,7 +649,9 @@
                     <div class="receipt-footer">
                         <p>Thank you for choosing Vet Care Animal Hospital!</p>
                     </div>
+
                 </div>
+
             <?php endif; ?>
         </div>
 
