@@ -1,7 +1,6 @@
 <?php
 session_start();
 
-// Check if doctor is logged in
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'doctor') {
     header("Location: ../login.php");
     exit();
@@ -14,16 +13,18 @@ $doctor_id = null;
 $error = '';
 $success = '';
 
-// Get doctor_id
-$stmt = $conn->prepare("SELECT id, name FROM doctors WHERE user_id = ?");
+// Get doctor info
+$stmt = $conn->prepare("SELECT id, name, photo FROM doctors WHERE user_id = ?");
 $stmt->bind_param("i", $doctor_user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 if ($row = $result->fetch_assoc()) {
     $doctor_id = $row['id'];
     $doctorName = $row['name'];
+    $photoPath = !empty($row['photo']) ? '../uploads/' . $row['photo'] : '../assets/default_doctor.png';
 } else {
     $doctorName = "Doctor";
+    $photoPath = '../assets/default_doctor.png';
 }
 $stmt->close();
 
@@ -44,13 +45,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit'])) {
     $stmt->bind_param("iiissssss", $appointment_id, $doctor_id, $patient_id, $symptoms, $diagnosis, $treatment, $medications, $notes, $follow_up_date);
 
     if ($stmt->execute()) {
-        // Mark the appointment as completed
         $update_stmt = $conn->prepare("UPDATE appointments SET status = 'completed' WHERE id = ?");
         $update_stmt->bind_param("i", $appointment_id);
         $update_stmt->execute();
         $update_stmt->close();
 
-        // Refresh the page to reload dropdown without completed appointment
         echo "<script>location.href='add_health.php?success=1';</script>";
         exit();
     } else {
@@ -60,7 +59,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit'])) {
     $stmt->close();
 }
 
-// Set success message from redirect
 if (isset($_GET['success'])) {
     $success = "Medical record added successfully.";
 }
@@ -90,24 +88,32 @@ $conn->close();
     <meta charset="UTF-8">
     <title>Add Health Details</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Bootstrap & Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .doctor-photo {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 2px solid #fff;
+        }
+    </style>
 </head>
 <body class="bg-light">
 
-<!-- Header Section -->
-<div class="row g-0" style="background-color: #4e8cff;">
-    <div class="col-12 p-3">
-        <div class="d-flex align-items-center">
-            <div class="flex-grow-1 text-center">
-                <h3 class="text-white mb-0 fw-bold"><?php echo htmlspecialchars($doctorName); ?></h3>
-            </div>
-        </div>
+<!-- Header -->
+<div class="row g-0 align-items-center" style="background-color: #4e8cff; min-height: 120px;">
+    <div class="col-md-1 text-center">
+        <img src="<?php echo htmlspecialchars($photoPath); ?>" class="doctor-photo mt-3 mb-3" alt="Doctor Photo">
+    </div>
+    <div class="col-md-11 d-flex flex-column justify-content-center align-items-center text-white">
+        <h3 class="fw-bold">Welcome, Dr.<?php echo htmlspecialchars($doctorName); ?></h3>
+        <p class="mb-0">Here is your activity summary for today.</p>
     </div>
 </div>
 
-<!-- Main Area -->
+<!-- Main -->
 <div class="row g-0 min-vh-100">
     <!-- Sidebar -->
     <div class="col-3 bg-white shadow-sm">
@@ -132,7 +138,7 @@ $conn->close();
         </div>
     </div>
 
-    <!-- Right Content Area -->
+    <!-- Content -->
     <div class="col-9 p-4">
         <div class="card shadow-sm p-4">
             <h4 class="mb-4">Add Health Record</h4>
@@ -151,8 +157,8 @@ $conn->close();
                         <option value="">-- Select --</option>
                         <?php foreach ($appointments as $appt): ?>
                             <option value="<?php echo $appt['appointment_id']; ?>"
-                                data-patient-id="<?php echo $appt['patient_id']; ?>"
-                                data-reason="<?php echo htmlspecialchars($appt['reason']); ?>">
+                                    data-patient-id="<?php echo $appt['patient_id']; ?>"
+                                    data-reason="<?php echo htmlspecialchars($appt['reason']); ?>">
                                 <?php echo "Appt #" . $appt['appointment_id'] . " - " . $appt['patient_name']; ?>
                             </option>
                         <?php endforeach; ?>
