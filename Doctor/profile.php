@@ -93,9 +93,13 @@ $conn->close();
 <body class="bg-light">
 
 <!-- Header -->
-<div class="row g-0" style="background-color: #4e8cff;">
-    <div class="col-12 p-3 text-center">
-        <h3 class="text-white fw-bold"><?php echo htmlspecialchars($doctor['name']); ?> - Profile</h3>
+<div class="row g-0 align-items-center" style="background-color: #4e8cff; min-height: 120px;">
+    <div class="col-md-1 text-center">
+        <!-- <img src="<?php echo htmlspecialchars($doctor['photo'] ?? '../assets/default-avatar.png'); ?>" class="doctor-photo mt-3 mb-3 profile-pic" alt="Doctor Photo"> -->
+    </div>
+    <div class="col-md-11 d-flex flex-column justify-content-center align-items-center text-white">
+        <h3 class="fw-bold">Welcome, Dr.<?php echo htmlspecialchars($doctor['name']); ?></h3>
+        <p class="mb-0">Here is your activity summary for today.</p>
     </div>
 </div>
 
@@ -138,7 +142,6 @@ $conn->close();
                     <img src="<?php echo $doctor['photo'] ? htmlspecialchars($doctor['photo']) : '../assets/default-avatar.png'; ?>" class="profile-pic mb-2" alt="Profile Picture">
                     <div class="upload-label w-25 mx-auto text-center">
                         <input type="file" name="photo" id="photoInput" class="form-control form-control-sm d-none">
-                        
                     </div>
                 </div>
 
