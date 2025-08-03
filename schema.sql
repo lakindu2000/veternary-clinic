@@ -98,9 +98,9 @@ CREATE TABLE medical_records (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE,
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
-    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 );
 
 
 --2025/08/03 updated(Nithya)
-ALTER TABLE users ADD COLUMN name VARCHAR(100) NOT NULL AFTER email;
+ALTER TABLE users ADD COLUMN name VARCHAR(100) NOT NULL;
