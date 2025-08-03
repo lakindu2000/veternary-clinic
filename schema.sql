@@ -71,10 +71,36 @@ INSERT INTO users (email, password, role) VALUES ('doctor@vetclinic.com', '$2y$1
 INSERT INTO doctors (user_id, name, specialization, phone, address) VALUES (2, 'Smith', 'General Practice', '1234567890', '123 Main St');
 
 
---2025/06/30 updated
+--2025/06/30 updated(Timasha)
 ALTER TABLE patients ADD COLUMN owner_id_num int NOT NULL;
 ALTER TABLE patients ADD COLUMN email varchar(100) NOT NULL;
 
 
---2025/07/01 updated
+--2025/07/01 updated(Timasha)
 ALTER TABLE appointments ADD COLUMN appointment_number INT NOT NULL;
+
+
+--2025/08/03 updated(Gayan)
+ALTER TABLE doctors ADD specification TEXT NOT NULL AFTER address;
+ALTER TABLE doctors ADD COLUMN photo VARCHAR(255);
+
+CREATE TABLE medical_records (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    appointment_id INT NOT NULL,
+    doctor_id INT NOT NULL,
+    patient_id INT NOT NULL,
+    symptoms TEXT,
+    diagnosis TEXT,
+    treatment TEXT,
+    medications TEXT,
+    notes TEXT,
+    follow_up_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE,
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+);
+
+
+--2025/08/03 updated(Nithya)
+ALTER TABLE users ADD COLUMN name VARCHAR(100) NOT NULL AFTER email;
