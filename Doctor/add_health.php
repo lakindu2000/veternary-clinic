@@ -44,7 +44,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit'])) {
     $stmt->bind_param("iiissssss", $appointment_id, $doctor_id, $patient_id, $symptoms, $diagnosis, $treatment, $medications, $notes, $follow_up_date);
 
     if ($stmt->execute()) {
-        $success = "Medical record added successfully.";
+        // Mark the appointment as completed
+        $update_stmt = $conn->prepare("UPDATE appointments SET status = 'completed' WHERE id = ?");
+        $update_stmt->bind_param("i", $appointment_id);
+        $update_stmt->execute();
+        $update_stmt->close();
+
+        // Refresh the page to reload dropdown without completed appointment
+        echo "<script>location.href='add_health.php?success=1';</script>";
+        exit();
     } else {
         $error = "Failed to add medical record.";
     }
@@ -52,13 +60,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit'])) {
     $stmt->close();
 }
 
-// Fetch appointments
+// Set success message from redirect
+if (isset($_GET['success'])) {
+    $success = "Medical record added successfully.";
+}
+
+// Fetch today's scheduled appointments
 $appointments = [];
 $stmt = $conn->prepare("SELECT a.id AS appointment_id, p.id AS patient_id, p.name AS patient_name, a.reason 
     FROM appointments a 
     JOIN patients p ON a.patient_id = p.id 
-    WHERE a.doctor_id = ? AND a.status = 'scheduled' 
-    ORDER BY a.appointment_date ASC");
+    WHERE a.doctor_id = ? 
+      AND a.status = 'scheduled' 
+      AND a.appointment_date = CURDATE()
+    ORDER BY a.appointment_time ASC");
 $stmt->bind_param("i", $doctor_id);
 $stmt->execute();
 $result = $stmt->get_result();
