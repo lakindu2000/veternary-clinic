@@ -1,4 +1,3 @@
-
 <?php
     session_start();
     require_once '../connection.php';
@@ -108,6 +107,13 @@
 
     // Check if user exists
     if (!$current_user) {
+        session_destroy();
+        header("Location: ../login.php");
+        exit();
+    }
+
+    // Check if user is admin
+    if ($current_user['role'] !== 'admin') {
         session_destroy();
         header("Location: ../login.php");
         exit();
