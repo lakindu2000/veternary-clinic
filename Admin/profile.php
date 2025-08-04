@@ -104,25 +104,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
             height: 100%;
             margin: 0;
             padding: 0;
+            overflow-x: hidden;
         }
         
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background-color: var(--light-bg);
             color: var(--dark-text);
-            display: flex;
-            flex-direction: column;
         }
         
         .sidebar {
             height: 100vh;
             width: 250px;
-            background: #ffffffff;
+            background: #ffffff;
             box-shadow: var(--card-shadow);
             position: fixed;
-            padding-top: 120px;
-            padding-left: 20px;
+            padding-top: 70px;
+            left: 0;
             top: 0;
+            z-index: 100;
+            overflow-y: auto;
         }
         
         .profile-img {
@@ -168,6 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
             padding: 0.5rem 2rem;
             position: fixed;
             top: 0;
+            left: 0;
             width: 100%;
             z-index: 1000;
             display: flex;
@@ -189,59 +191,47 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
             margin-left: 15px;
         }
         
-        .main-container {
-            flex: 1;
-            display: flex;
-            margin-top: 70px;
-            height: calc(100vh - 70px);
+        .main-content {
+            margin-left: 250px;
+            padding-top: 70px;
+            min-height: 100vh;
+            width: calc(100% - 250px);
         }
         
         .content-wrapper {
-            flex: 1;
-            overflow-y: auto;
             padding: 2rem;
-            margin-left: 250px;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            max-width: 1200px;
+            margin: 0 auto;
         }
         
         .profile-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            width: 90%;
-            max-width: 1200px;
-            height: 100%;
+            gap: 1.5rem;
         }
         
         .profile-section, .password-section {
             background: white;
             border-radius: 8px;
             box-shadow: var(--card-shadow);
-            padding: 2rem;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
+            padding: 1.5rem;
         }
         
         .profile-header {
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin-bottom: 2rem;
-            flex: 1;
+            margin-bottom: 1.5rem;
         }
         
         .profile-photo-container {
             position: relative;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
         
         .profile-photo {
-            width: 200px;
-            height: 200px;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
             object-fit: cover;
             border: 3px solid var(--primary-color);
@@ -260,19 +250,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
         
         .profile-details {
             width: 100%;
-            flex: 2;
         }
         
         .detail-row {
             display: flex;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
             padding-bottom: 1rem;
             border-bottom: 1px solid #eee;
         }
         
         .detail-label {
             font-weight: 600;
-            width: 150px;
+            width: 120px;
             color: var(--dark-text);
         }
         
@@ -298,9 +287,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
         }
         
         .password-form {
-            flex: 1;
             display: flex;
             flex-direction: column;
+            gap: 1rem;
         }
         
         .password-section h4 {
@@ -310,15 +299,46 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
         }
         
         .user-name {
-            font-size: 1.8rem;
+            font-size: 1.5rem;
             margin-bottom: 0.5rem;
             color: var(--dark-text);
         }
         
         .user-role {
-            font-size: 1rem;
+            font-size: 0.9rem;
             color: var(--primary-color);
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 992px) {
+            .profile-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                width: 200px;
+            }
+            
+            .main-content {
+                margin-left: 200px;
+                width: calc(100% - 200px);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
         }
     </style>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
@@ -332,19 +352,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
         </div>
     </div>
     
-    <div class="main-container">
-        <div class="sidebar">
-            <div class="w-100 d-flex flex-column align-items-start">
-                <a class="link" href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-                <a class="link" href="appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a>
-                <a class="link" href="patients.php"><i class="fas fa-paw"></i> Patients</a>
-                <a class="link" href="billing.php"><i class="fas fa-receipt"></i> Billing</a>
-                <a class="link active" href="profile.php"><i class="fas fa-user"></i> Profile</a>
-                <a class="link" href="settings.php"><i class="fas fa-cog"></i> Settings</a>
-                <a class="link" href="../logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
-            </div>
+    <div class="sidebar">
+        <div class="w-100 d-flex flex-column align-items-start">
+            <a class="link" href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <a class="link" href="appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a>
+            <a class="link" href="patients.php"><i class="fas fa-paw"></i> Patients</a>
+            <a class="link" href="billing.php"><i class="fas fa-receipt"></i> Billing</a>
+            <a class="link active" href="profile.php"><i class="fas fa-user"></i> Profile</a>
+            <a class="link" href="settings.php"><i class="fas fa-cog"></i> Settings</a>
+            <a class="link" href="../logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>
+    </div>
 
+    <div class="main-content">
         <div class="content-wrapper">
             <?php if ($error): ?>
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -406,20 +426,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
                 <div class="password-section">
                     <h4>Change Password</h4>
                     <form method="post" class="password-form">
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <label for="current_password" class="form-label">Current Password</label>
-                            <input type="password" class="form-control form-control-lg" id="current_password" name="current_password" required>
+                            <input type="password" class="form-control" id="current_password" name="current_password" required>
                         </div>
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <label for="new_password" class="form-label">New Password</label>
-                            <input type="password" class="form-control form-control-lg" id="new_password" name="new_password" required>
+                            <input type="password" class="form-control" id="new_password" name="new_password" required>
                         </div>
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <label for="confirm_password" class="form-label">Confirm New Password</label>
-                            <input type="password" class="form-control form-control-lg" id="confirm_password" name="confirm_password" required>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
                         </div>
-                        <div class="mt-auto">
-                            <button type="submit" name="change_password" class="btn btn-primary btn-lg w-100">Update Password</button>
+                        <div class="mt-3">
+                            <button type="submit" name="change_password" class="btn btn-primary w-100">Update Password</button>
                         </div>
                     </form>
                 </div>
