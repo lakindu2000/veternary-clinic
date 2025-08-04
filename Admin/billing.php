@@ -1,6 +1,26 @@
 <?php
-    require_once '../connection.php';
     session_start();
+    require_once '../connection.php';
+
+    // Check if user is logged in
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: ../login.php");
+        exit();
+    }
+
+    // Get current user data for navbar
+    $user_id = $_SESSION['user_id'];
+    $user_stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+    $user_stmt->bind_param('i', $user_id);
+    $user_stmt->execute();
+    $current_user = $user_stmt->get_result()->fetch_assoc();
+
+    // Check if user exists
+    if (!$current_user) {
+        session_destroy();
+        header("Location: ../login.php");
+        exit();
+    }
 
     // Initialize variables
     $search_owner_id = $_GET['owner_id_num'] ?? '';
@@ -14,13 +34,23 @@
     $show_receipt = false;
     $receipt_data = [];
 
-    // Define default charges
+    // Get charges from database (set in settings page)
     $charges = [
-        'appointment' => 1000.00,
-        'doctor' => 500.00,
         'report' => 0.00,
         'medication' => 0.00
     ];
+
+    // Fetch charges from database
+    $charges_result = $conn->query("SELECT charge_type, amount FROM charges");
+    if ($charges_result && $charges_result->num_rows > 0) {
+        while ($row = $charges_result->fetch_assoc()) {
+            if ($row['charge_type'] == 'appointment') {
+                $charges['appointment'] = $row['amount'];
+            } elseif ($row['charge_type'] == 'doctor_consultation') {
+                $charges['doctor'] = $row['amount'];
+            }
+        }
+    }
 
     // Check for success flag in URL and show receipt if present
     if (isset($_GET['payment_success']) && isset($_SESSION['receipt_data'])) {
@@ -88,6 +118,7 @@
                 ],
                 'appointment' => [
                     'id' => $appointment['id'] ?? 'N/A',
+                    'appointment_number' => $appointment['appointment_number'] ?? 'N/A',
                     'appointment_date' => $appointment['appointment_date'] ?? 'Not Available',
                     'appointment_time' => $appointment['appointment_time'] ?? 'Not Available',
                     'doctor_name' => $appointment['doctor_name'] ?? 'Not Available',
@@ -107,6 +138,11 @@
             $stmt->bind_param('iids', $appointment_id, $patient_id, $amount, $services);
             
             if ($stmt->execute()) {
+                // Update appointment status to 'completed' after successful payment
+                $update_stmt = $conn->prepare("UPDATE appointments SET status = 'completed' WHERE id = ?");
+                $update_stmt->bind_param('i', $appointment_id);
+                $update_stmt->execute();
+                
                 header("Location: billing.php?payment_success=1");
                 exit();
             } else {
@@ -437,8 +473,8 @@
     <body>
         <div class="navbar">
             <div class="admin-info">
-                <img src="../assets/cat.jpg" class="profile-img">
-                <span class="admin-name-nav">Timasha Wanninayaka</span>
+                <img src="<?= htmlspecialchars($current_user['profile_photo'] ?? '../assets/default-profile.jpg') ?>" class="profile-img">
+                <span class="admin-name-nav"><?= htmlspecialchars($current_user['name'] ?? 'Admin') ?></span>
             </div>
         </div>
         
@@ -531,9 +567,9 @@
                         <h4>Appointment Details</h4>
                         <div class="row mb-3">
                             <div class="col-md-4">
-                                <label class="form-label">Appointment ID</label>
+                                <label class="form-label">Appointment Number</label>
                                 <input type="text" class="form-control <?= !$fieldsShouldPopulate ? 'empty-field' : '' ?>" 
-                                    value="<?= $fieldsShouldPopulate ? htmlspecialchars($appointment['id']) : 'No appointment' ?>" readonly>
+                                    value="<?= $fieldsShouldPopulate ? htmlspecialchars($appointment['appointment_number']) : 'No appointment' ?>" readonly>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Date & Time</label>
@@ -651,8 +687,8 @@
                         <div class="receipt-section">
                             <h2>Appointment Details</h2>
                             <div class="receipt-row">
-                                <div class="receipt-label">Appointment ID:</div>
-                                <div class="receipt-value"><?= htmlspecialchars($receipt_data['appointment']['id']) ?></div>
+                                <div class="receipt-label">Appointment Number:</div>
+                                <div class="receipt-value"><?= htmlspecialchars($receipt_data['appointment']['appointment_number']) ?></div>
                             </div>
                             <div class="receipt-row">
                                 <div class="receipt-label">Date & Time:</div>
@@ -740,6 +776,15 @@
                 
                 // Focus on search field
                 document.querySelector('[name="owner_id_num"]').focus();
+                
+                // Trigger dashboard update after successful payment
+                localStorage.setItem('dashboard_update', 'true');
+                
+                // Also trigger update for other tabs/windows
+                window.dispatchEvent(new StorageEvent('storage', {
+                    key: 'dashboard_update',
+                    newValue: 'true'
+                }));
                 <?php endif; ?>
             };
 
