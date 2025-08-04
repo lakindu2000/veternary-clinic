@@ -12,7 +12,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = trim($_POST['password']);
 
     // Prepare statement to prevent SQL injection
-    $stmt = $conn->prepare("SELECT id, email, password, role FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT id, email, password, role, name FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -26,6 +26,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_email'] = $user['email'];
             $_SESSION['user_role'] = $user['role'];
+            $_SESSION['user_name'] = $user['name'] ?? $user['email']; // Store name for logout message
             
             // Redirect based on role
             if ($user['role'] == 'admin') {

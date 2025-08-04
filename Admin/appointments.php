@@ -1,6 +1,62 @@
 <?php
-    require_once '../connection.php';
     session_start();
+    require_once '../connection.php';
+
+    // Check if user is logged in
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: ../login.php");
+        exit();
+    }
+
+    // Get current user data for navbar (for navbar display)
+    $user_id = $_SESSION['user_id'];
+    $user_stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+    $user_stmt->bind_param('i', $user_id);
+    $user_stmt->execute();
+    $current_user = $user_stmt->get_result()->fetch_assoc();
+
+    // Check if user exists
+    if (!$current_user) {
+        session_destroy();
+        header("Location: ../login.php");
+        exit();
+    }
+
+    // AJAX handler for generating appointment number
+    if (isset($_GET['action']) && $_GET['action'] === 'generate_appointment_number') {
+        if (isset($_GET['date'])) {
+            $appointment_date = $_GET['date'];
+            
+            // Function to generate automatic appointment number
+            function generateAppointmentNumberAjax($conn, $appointment_date) {
+                // Format: just sequential number (001, 002, etc.) for each day
+                
+                // Get the highest appointment number for the selected date
+                $stmt = $conn->prepare("SELECT appointment_number FROM appointments 
+                                      WHERE DATE(appointment_date) = ? 
+                                      ORDER BY CAST(appointment_number AS UNSIGNED) DESC LIMIT 1");
+                $stmt->bind_param('s', $appointment_date);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                
+                if ($result->num_rows > 0) {
+                    $last_appointment = $result->fetch_assoc();
+                    $last_number = intval($last_appointment['appointment_number']);
+                    $sequence = $last_number + 1;
+                } else {
+                    $sequence = 1;
+                }
+                
+                // Format sequence with leading zeros (001, 002, etc.)
+                return str_pad($sequence, 3, '0', STR_PAD_LEFT);
+            }
+            
+            $appointment_number = generateAppointmentNumberAjax($conn, $appointment_date);
+            header('Content-Type: application/json');
+            echo json_encode(['appointment_number' => $appointment_number]);
+            exit();
+        }
+    }
 
     // Initialize variables
     $msg = '';
@@ -10,6 +66,30 @@
     $patient = [];
     $appointment = [];
     $receipt_data = [];
+
+    // Function to generate automatic appointment number
+    function generateAppointmentNumber($conn, $appointment_date) {
+        // Format: just sequential number (001, 002, etc.) for each day
+        
+        // Get the highest appointment number for the selected date
+        $stmt = $conn->prepare("SELECT appointment_number FROM appointments 
+                              WHERE DATE(appointment_date) = ? 
+                              ORDER BY CAST(appointment_number AS UNSIGNED) DESC LIMIT 1");
+        $stmt->bind_param('s', $appointment_date);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            $last_appointment = $result->fetch_assoc();
+            $last_number = intval($last_appointment['appointment_number']);
+            $sequence = $last_number + 1;
+        } else {
+            $sequence = 1;
+        }
+        
+        // Format sequence with leading zeros (001, 002, etc.)
+        return str_pad($sequence, 3, '0', STR_PAD_LEFT);
+    }
 
     // Check if form is submitted for search
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['owner_id_num'])) {
@@ -30,11 +110,13 @@
     // Process appointment form submission
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
         $patient_id = $_POST['patient_id'] ?? null;
-        $appointment_number = $_POST['appointment_number'];
         $appointment_date = $_POST['appointment_date'];
         $appointment_time = $_POST['appointment_time'];
         $doctor_id = $_POST['doctor_id'];
         $reason = $_POST['reason'];
+        
+        // Auto-generate appointment number based on appointment date
+        $appointment_number = generateAppointmentNumber($conn, $appointment_date);
         
         // Check if this is a new patient (fields not populated)
         if (empty($patient_id)) {
@@ -417,8 +499,8 @@
     <body>
         <div class="navbar">
             <div class="admin-info">
-                <img src="../assets/cat.jpg" class="profile-img">
-                <span class="admin-name-nav">Timasha Wanninayaka</span>
+                <img src="<?= htmlspecialchars($current_user['profile_photo'] ?? '../assets/default-profile.jpg') ?>" class="profile-img">
+                <span class="admin-name-nav"><?= htmlspecialchars($current_user['name'] ?? 'Admin') ?></span>
             </div>
         </div>
         
@@ -426,7 +508,7 @@
             <div class="sidebar">
                 <div class="w-100 d-flex flex-column align-items-start">
                     <a class="link" href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-                    <a class="link active" href="appointment.php"><i class="fas fa-calendar-check"></i> Appointments</a>
+                    <a class="link active" href="appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a>
                     <a class="link" href="patients.php"><i class="fas fa-paw"></i> Patients</a>
                     <a class="link" href="billing.php"><i class="fas fa-receipt"></i> Billing</a>
                     <a class="link" href="profile.php"><i class="fas fa-user"></i> Profile</a>
@@ -454,12 +536,12 @@
                         <button type="submit" class="btn btn-primary w-100">Search</button>
                     </div>
                     <div class="col-md-2">
-                        <a href="appointment.php" class="btn btn-secondary w-100">Clear</a>
+                        <a href="appointments.php" class="btn btn-secondary w-100">Clear</a>
                     </div>
                 </form>
             </div>
 
-            <form method="post">
+            <form method="post" id="appointmentForm">
                 <input type="hidden" name="patient_id" value="<?= $patient ? $patient['id'] : '' ?>">
 
                 <div class="form-section no-print">
@@ -515,15 +597,59 @@
                     <div class="row mb-3">
                         <div class="col-md-3">
                             <label class="form-label">Appointment Number</label>
-                            <input type="text" class="form-control" name="appointment_number" required>
+                            <input type="text" class="form-control" id="appointment_number" name="appointment_number" 
+                                   placeholder="Auto-generated" readonly>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Appointment Date</label>
-                            <input type="date" class="form-control" name="appointment_date" required>
+                            <input type="date" class="form-control" id="appointment_date" name="appointment_date" required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Appointment Time</label>
-                            <input type="time" class="form-control" name="appointment_time" required>
+                            <select class="form-select" name="appointment_time" required>
+                                <option value="">Select Time</option>
+                                <option value="08:00">08:00 AM</option>
+                                <option value="08:15">08:15 AM</option>
+                                <option value="08:30">08:30 AM</option>
+                                <option value="08:45">08:45 AM</option>
+                                <option value="09:00">09:00 AM</option>
+                                <option value="09:15">09:15 AM</option>
+                                <option value="09:30">09:30 AM</option>
+                                <option value="09:45">09:45 AM</option>
+                                <option value="10:00">10:00 AM</option>
+                                <option value="10:15">10:15 AM</option>
+                                <option value="10:30">10:30 AM</option>
+                                <option value="10:45">10:45 AM</option>
+                                <option value="11:00">11:00 AM</option>
+                                <option value="11:15">11:15 AM</option>
+                                <option value="11:30">11:30 AM</option>
+                                <option value="11:45">11:45 AM</option>
+                                <option value="12:00">12:00 PM</option>
+                                <option value="12:15">12:15 PM</option>
+                                <option value="12:30">12:30 PM</option>
+                                <option value="12:45">12:45 PM</option>
+                                <option value="13:00">01:00 PM</option>
+                                <option value="13:15">01:15 PM</option>
+                                <option value="13:30">01:30 PM</option>
+                                <option value="13:45">01:45 PM</option>
+                                <option value="14:00">02:00 PM</option>
+                                <option value="14:15">02:15 PM</option>
+                                <option value="14:30">02:30 PM</option>
+                                <option value="14:45">02:45 PM</option>
+                                <option value="15:00">03:00 PM</option>
+                                <option value="15:15">03:15 PM</option>
+                                <option value="15:30">03:30 PM</option>
+                                <option value="15:45">03:45 PM</option>
+                                <option value="16:00">04:00 PM</option>
+                                <option value="16:15">04:15 PM</option>
+                                <option value="16:30">04:30 PM</option>
+                                <option value="16:45">04:45 PM</option>
+                                <option value="17:00">05:00 PM</option>
+                                <option value="17:15">05:15 PM</option>
+                                <option value="17:30">05:30 PM</option>
+                                <option value="17:45">05:45 PM</option>
+                                <option value="18:00">06:00 PM</option>
+                            </select>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Doctor</label>
@@ -621,6 +747,11 @@
 
                     <div class="receipt-footer">
                         <p>Thank you for choosing Vet Care Animal Hospital!</p>
+                        <hr style="margin: 15px 0; border-color: #ddd;">
+                        <p style="color: #e53e3e; font-size: 14px; font-weight: 500;">
+                            <strong>Important Notice:</strong> The appointment time may change sometimes due to unforeseen issues. 
+                            Please confirm your appointment by calling us 30 minutes before your scheduled time.
+                        </p>
                     </div>
                 </div>
             <?php endif; ?>
@@ -635,6 +766,58 @@
                     receipt.style.display = 'none';
                 }
             }
+
+            // Auto-generate appointment number when date changes
+            document.addEventListener('DOMContentLoaded', function() {
+                const appointmentDateField = document.getElementById('appointment_date');
+                const appointmentNumberField = document.getElementById('appointment_number');
+                const appointmentForm = document.getElementById('appointmentForm');
+
+                // Generate appointment number for today by default
+                if (appointmentDateField.value) {
+                    generateAppointmentNumber(appointmentDateField.value);
+                }
+
+                appointmentDateField.addEventListener('change', function() {
+                    if (this.value) {
+                        appointmentNumberField.placeholder = 'Generating...';
+                        generateAppointmentNumber(this.value);
+                    } else {
+                        appointmentNumberField.value = '';
+                        appointmentNumberField.placeholder = 'Select date first';
+                    }
+                });
+
+                // Form validation to ensure appointment number is generated
+                appointmentForm.addEventListener('submit', function(e) {
+                    if (!appointmentNumberField.value) {
+                        e.preventDefault();
+                        alert('Please wait for the appointment number to be generated or select a valid date.');
+                        return false;
+                    }
+                });
+
+                function generateAppointmentNumber(date) {
+                    fetch(`appointments.php?action=generate_appointment_number&date=${date}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            appointmentNumberField.value = data.appointment_number;
+                            appointmentNumberField.placeholder = 'Auto-generated';
+                        })
+                        .catch(error => {
+                            console.error('Error generating appointment number:', error);
+                            appointmentNumberField.value = '';
+                            appointmentNumberField.placeholder = 'Error generating number';
+                        });
+                }
+
+                // Set today's date as default
+                if (!appointmentDateField.value) {
+                    const today = new Date().toISOString().split('T')[0];
+                    appointmentDateField.value = today;
+                    generateAppointmentNumber(today);
+                }
+            });
         </script>
     </body>
 </html>

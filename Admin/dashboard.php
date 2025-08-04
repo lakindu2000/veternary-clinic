@@ -1,6 +1,13 @@
 
 <?php
+    session_start();
     require_once '../connection.php';
+
+    // Check if user is logged in
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: ../login.php");
+        exit();
+    }
 
     // Function to get counts from database
     function getDashboardCounts($conn) {
@@ -77,6 +84,33 @@
         }
         
         return $monthlyData;
+    }
+
+    // AJAX handler for real-time dashboard updates
+    if (isset($_GET['action']) && $_GET['action'] === 'get_dashboard_data') {
+        $counts = getDashboardCounts($conn);
+        $todaysAppointments = getTodaysAppointments($conn);
+        
+        header('Content-Type: application/json');
+        echo json_encode([
+            'counts' => $counts,
+            'appointments' => $todaysAppointments
+        ]);
+        exit();
+    }
+
+    // Get current user data for navbar
+    $user_id = $_SESSION['user_id'];
+    $user_stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+    $user_stmt->bind_param('i', $user_id);
+    $user_stmt->execute();
+    $current_user = $user_stmt->get_result()->fetch_assoc();
+
+    // Check if user exists
+    if (!$current_user) {
+        session_destroy();
+        header("Location: ../login.php");
+        exit();
     }
 
     // Get all data
@@ -362,9 +396,8 @@
     <body>
         <div class="navbar">
             <div class="admin-info">
-                <img src="../assets/cat.jpg" class="profile-img">
-
-                <span class="admin-name-nav"><?php echo htmlspecialchars($_SESSION['admin_name'] ?? 'Admin'); ?></span>
+                <img src="<?= htmlspecialchars($current_user['profile_photo'] ?? '../assets/default-profile.jpg') ?>" class="profile-img">
+                <span class="admin-name-nav"><?= htmlspecialchars($current_user['name'] ?? 'Admin') ?></span>
 
             </div>
         </div>
@@ -373,8 +406,6 @@
             <div class="sidebar">
                 <div class="w-100 d-flex flex-column align-items-start">
                     <a class="link active" href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-
-           
                     <a class="link" href="appointments.php"><i class="fas fa-calendar-check"></i> Appointments</a>
                     <a class="link" href="patients.php"><i class="fas fa-paw"></i> Patients</a>
                     <a class="link" href="billing.php"><i class="fas fa-receipt"></i> Billing</a>
@@ -514,6 +545,74 @@
                     }
                 }
             });
+
+            // Function to update dashboard data in real-time
+            function updateDashboardData() {
+                fetch('dashboard.php?action=get_dashboard_data')
+                    .then(response => response.json())
+                    .then(data => {
+                        // Update counts
+                        document.getElementById('appointments-count').textContent = data.counts.appointments;
+                        
+                        // Update today's appointments list
+                        const appointmentsList = document.querySelector('.appointments-list');
+                        if (data.appointments.length > 0) {
+                            appointmentsList.innerHTML = '';
+                            data.appointments.forEach(appointment => {
+                                const appointmentItem = document.createElement('div');
+                                appointmentItem.className = 'appointment-item';
+                                
+                                // Format time to 12-hour format
+                                const timeFormatted = new Date('1970-01-01T' + appointment.appointment_time + 'Z')
+                                    .toLocaleTimeString('en-US', {
+                                        timeZone: 'UTC',
+                                        hour12: true,
+                                        hour: 'numeric',
+                                        minute: '2-digit'
+                                    });
+                                
+                                appointmentItem.innerHTML = `
+                                    <span class="appointment-time">${timeFormatted}</span>
+                                    <span class="appointment-patient">
+                                        ${appointment.name} (${appointment.species}) - ${appointment.reason}
+                                    </span>
+                                `;
+                                appointmentsList.appendChild(appointmentItem);
+                            });
+                        } else {
+                            appointmentsList.innerHTML = '<div class="text-center py-3">No appointments scheduled for today</div>';
+                        }
+                    })
+                    .catch(error => console.error('Error updating dashboard:', error));
+            }
+
+            // Listen for storage events to detect updates from billing page
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'dashboard_update') {
+                    updateDashboardData();
+                    // Clear the storage item
+                    localStorage.removeItem('dashboard_update');
+                }
+            });
+
+            // Also check on page load/focus for pending updates
+            window.addEventListener('focus', function() {
+                if (localStorage.getItem('dashboard_update')) {
+                    updateDashboardData();
+                    localStorage.removeItem('dashboard_update');
+                }
+            });
+
+            // Check immediately on load
+            if (localStorage.getItem('dashboard_update')) {
+                setTimeout(() => {
+                    updateDashboardData();
+                    localStorage.removeItem('dashboard_update');
+                }, 500);
+            }
+
+            // Check for updates every 30 seconds as backup
+            setInterval(updateDashboardData, 30000);
         </script>
     </body>
 </html>
