@@ -2,6 +2,14 @@
     session_start();
     require_once '../connection.php';
 
+    require_once '../Lib/PHPMailer-master/src/PHPMailer.php';
+    require_once '../Lib/PHPMailer-master/src/SMTP.php';
+    require_once '../Lib/PHPMailer-master/src/Exception.php';
+
+    use PHPMailer\PHPMailer\PHPMailer;
+    use PHPMailer\PHPMailer\Exception;
+
+
     // Check if user is logged in
     if (!isset($_SESSION['user_id'])) {
         header("Location: ../login.php");
@@ -162,7 +170,63 @@
         $stmt->bind_param("isssis", $patient_id, $appointment_number, $appointment_date, $appointment_time, $doctor_id, $reason);
         $stmt->execute();
         $appointment_id = $conn->insert_id;
-        
+
+        // Prepare data for QR code
+        $qr_data = "Patient ID: $patient_id\nName: $patient_name\nSpecies: $species\nBreed: $breed\nAge: $age\nOwner: $owner_name\nPhone: $owner_phone";
+
+        // Generate QR code image
+        $qr_dir = "../qrcodes/";
+        if (!file_exists($qr_dir)) {
+            mkdir($qr_dir, 0777, true);
+        }
+        $qr_filename = $qr_dir . "patient_" . $patient_id . ".png";
+        require_once '../Lib/phpqrcode/qrlib.php'; // Ensure phpqrcode is installed
+        QRcode::png($qr_data, $qr_filename, QR_ECLEVEL_L, 5);
+
+        // Send email with QR code attachment using PHPMailer
+           
+            $mail = new PHPMailer(true);
+
+            try {
+                // Server settings
+                $mail->isSMTP();
+                $mail->Host       = 'smtp.gmail.com';
+                $mail->SMTPAuth   = true;
+                $mail->Username   = 'lakinduedirisinghe2000@gmail.com'; 
+                $mail->Password   = 'uuhxisrbyyonlhnh';            
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port       = 587;
+
+                // Recipients
+                $mail->setFrom('info@vetcare.lk', 'Vet Care Animal Hospital');
+                $mail->addAddress($email, $owner_name);
+
+                // Content
+                $mail->isHTML(false);
+                $mail->Subject = 'Vet Care Animal Hospital - Patient QR Code';
+                $mail->Body    = "Dear $owner_name,\r\n\r\n"
+                            . "Thank you for registering your pet with Vet Care Animal Hospital. Attached is the QR code for your pet's profile.\r\n"
+                            . "Patient Details:\r\n"
+                            . "Name: $patient_name\r\n"
+                            . "Species: $species\r\n"
+                            . "Breed: $breed\r\n"
+                            . "Age: $age\r\n"
+                            . "Owner: $owner_name\r\n"
+                            . "Phone: $owner_phone\r\n\r\n"
+                            . "Please keep this QR code for future reference.\r\n"
+                            . "Best regards,\r\nVet Care Animal Hospital";
+
+                // Attach QR code
+                $mail->addAttachment($qr_filename, "patient_$patient_id.png");
+
+                // Send email
+                $mail->send();
+                $msg .= '<div class="alert alert-success">QR code sent to ' . htmlspecialchars($email) . '</div>';
+            } catch (Exception $e) {
+                $msg .= '<div class="alert alert-danger">Failed to send QR code to email. Error: ' . htmlspecialchars($mail->ErrorInfo) . '</div>';
+            }
+
+                
         // Get doctor details for receipt
         $stmt = $conn->prepare("SELECT name, specialization FROM doctors WHERE id = ?");
         $stmt->bind_param("i", $doctor_id);
