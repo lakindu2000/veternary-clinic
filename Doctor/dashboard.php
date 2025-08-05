@@ -536,21 +536,21 @@ $conn->close();
                     <div class="cards-container">
                         <div class="card card-green">
                             <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-user-md me-2"></i>Total Patients</h5>
+                                <h5 class="card-title">Total Patients</h5>
                                 <h2 class="card-text" id="total-patients"><?php echo $counts['total_patients']; ?></h2>
                             </div>
                         </div>
 
                         <div class="card card-yellow">
                             <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-calendar-check me-2"></i>Today's Appointments</h5>
+                                <h5 class="card-title">Today's Appointments</h5>
                                 <h2 class="card-text" id="today-appointments"><?php echo $counts['today_appointments']; ?></h2>
                             </div>
                         </div>
 
                         <div class="card card-red">
                             <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-check-circle me-2"></i>Completed Today</h5>
+                                <h5 class="card-title">Completed Today</h5>
                                 <h2 class="card-text" id="completed-today"><?php echo $counts['completed_today']; ?></h2>
                             </div>
                         </div>
