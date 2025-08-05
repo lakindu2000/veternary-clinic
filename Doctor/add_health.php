@@ -1,12 +1,19 @@
 <?php
+require_once '../connection.php';
 session_start();
 
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'doctor') {
+// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
     exit();
 }
 
-require_once '../connection.php';
+// Get current user data for navbar
+$user_id = $_SESSION['user_id'];
+$user_stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+$user_stmt->bind_param('i', $user_id);
+$user_stmt->execute();
+$current_user = $user_stmt->get_result()->fetch_assoc();
 
 $doctor_user_id = $_SESSION['user_id'];
 $doctor_id = null;
@@ -86,63 +93,171 @@ $conn->close();
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Add Health Details</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vet Clinic - Add Health Details</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        .doctor-photo {
-            width: 80px;
-            height: 80px;
+        :root {
+            --primary-color: #4e8cff;
+            --secondary-color: #3a7bd5;
+            --light-bg: #f8fafc;
+        }
+        
+        .sidebar {
+            height: 100vh;
+            width: 250px;
+            background: #ffffffff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            padding-top: 120px;
+            padding-left: 20px;
+            top: 0;
+        }
+        
+        .sidebar .link {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0;
+            margin-bottom: 0;
+            font-weight: 600;
+            color: #2d3748;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        
+        .sidebar .link:hover {
+            background-color: rgba(78, 140, 255, 0.05);
+            color: #4e8cff;
+        }
+        
+        .sidebar .link.active {
+            background-color: rgba(78, 140, 255, 0.1);
+            color: #4e8cff;
+        }
+        
+        .sidebar .link i {
+            margin-right: 1rem;
+            width: 20px;
+            text-align: center;
+            color: inherit;
+        }
+        
+        .navbar {
+            background: #4e8cff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            padding: 0.5rem 2rem;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 70px;
+        }
+        
+        .profile-img {
+            width: 50px;
+            height: 50px;
             object-fit: cover;
             border-radius: 50%;
-            border: 2px solid #fff;
+            border: 2px solid white;
+        }
+        
+        .admin-name-nav {
+            font-weight: 400;
+            color: white;
+            font-size: 20px;
+            margin-left: 15px;
+        }
+        
+        .content-wrapper {
+            margin-left: 250px;
+            padding: 20px;
+            margin-top: 70px;
+        }
+        
+        .health-card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            transition: all 0.2s ease;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(78, 140, 255, 0.25);
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            font-weight: 600;
+            padding: 0.6rem 1.5rem;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+            border-color: #6c757d;
+            font-weight: 600;
+            padding: 0.6rem 1.5rem;
+        }
+        
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: static;
+                padding-top: 0;
+            }
+            
+            .content-wrapper {
+                margin-left: 0;
+            }
         }
     </style>
 </head>
 <body class="bg-light">
 
-<!-- Header -->
-<div class="row g-0 align-items-center" style="background-color: #4e8cff; min-height: 120px;">
-    <div class="col-md-1 text-center">
-        <img src="<?php echo htmlspecialchars($photoPath); ?>" class="doctor-photo mt-3 mb-3" alt="Doctor Photo">
-    </div>
-    <div class="col-md-11 d-flex flex-column justify-content-center align-items-center text-white">
-        <h3 class="fw-bold">Welcome, Dr.<?php echo htmlspecialchars($doctorName); ?></h3>
-        <p class="mb-0">Here is your activity summary for today.</p>
+<!-- Navbar -->
+<div class="navbar">
+    <div class="admin-info">
+        <img src="<?= htmlspecialchars($current_user['profile_photo'] ?? '../assets/default-profile.jpg') ?>" class="profile-img">
+        <span class="admin-name-nav">Dr. <?= htmlspecialchars($current_user['name'] ?? 'Doctor') ?></span>
     </div>
 </div>
 
-<!-- Main -->
-<div class="row g-0 min-vh-100">
-    <!-- Sidebar -->
-    <div class="col-3 bg-white shadow-sm">
-        <div class="p-3">
-            <div class="list-group list-group-flush">
-                <a href="dashboard.php" class="list-group-item list-group-item-action border-0 rounded mb-2">
-                    <i class="fas fa-home me-3"></i>Dashboard
-                </a>
-                <a href="profile.php" class="list-group-item list-group-item-action border-0 rounded mb-2">
-                    <i class="fas fa-user me-3"></i>Profile View
-                </a>
-                <a href="patients.php" class="list-group-item list-group-item-action border-0 rounded mb-2">
-                    <i class="fas fa-users me-3"></i>Patients
-                </a>
-                <a href="add_health.php" class="list-group-item list-group-item-action active border-0 rounded mb-2">
-                    <i class="fas fa-plus-circle me-3"></i>Add Health Details
-                </a>
-                <a href="../logout.php" class="list-group-item list-group-item-action border-0 rounded mb-2 text-danger">
-                    <i class="fas fa-sign-out-alt me-3"></i>Log Out
-                </a>
-            </div>
-        </div>
+<!-- Sidebar -->
+<div class="sidebar">
+    <div class="w-100 d-flex flex-column align-items-start">
+        <a class="link" href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+        <a class="link" href="profile.php"><i class="fas fa-user"></i> Profile</a>
+        <a class="link" href="patients.php"><i class="fas fa-paw"></i> Patients</a>
+        <a class="link active" href="add_health.php"><i class="fas fa-heartbeat"></i> Add Health Details</a>
+        <a class="link" href="../logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
+</div>
 
-    <!-- Content -->
-    <div class="col-9 p-4">
-        <div class="card shadow-sm p-4">
-            <h4 class="mb-4">Add Health Record</h4>
-
+<!-- Main Content -->
+<div class="content-wrapper">
+    <!-- Health Record Form -->
+    <div class="card health-card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-heartbeat me-2"></i>Add Health Record</h5>
+        </div>
+        <div class="card-body">
             <?php if ($error): ?>
                 <div class="alert alert-danger"><?php echo $error; ?></div>
             <?php endif; ?>
@@ -151,67 +266,95 @@ $conn->close();
             <?php endif; ?>
 
             <form method="POST" action="">
-                <div class="mb-3">
-                    <label for="appointment_id" class="form-label">Select Appointment</label>
-                    <select id="appointment_id" name="appointment_id" class="form-select" required onchange="autoFill()">
-                        <option value="">-- Select --</option>
-                        <?php foreach ($appointments as $appt): ?>
-                            <option value="<?php echo $appt['appointment_id']; ?>"
-                                    data-patient-id="<?php echo $appt['patient_id']; ?>"
-                                    data-reason="<?php echo htmlspecialchars($appt['reason']); ?>">
-                                <?php echo "Appt #" . $appt['appointment_id'] . " - " . $appt['patient_name']; ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="appointment_id" class="form-label">Select Appointment</label>
+                            <select id="appointment_id" name="appointment_id" class="form-select" required onchange="autoFill()">
+                                <option value="">-- Select Appointment --</option>
+                                <?php foreach ($appointments as $appt): ?>
+                                    <option value="<?php echo $appt['appointment_id']; ?>"
+                                            data-patient-id="<?php echo $appt['patient_id']; ?>"
+                                            data-reason="<?php echo htmlspecialchars($appt['reason']); ?>">
+                                        <?php echo "Appt #" . $appt['appointment_id'] . " - " . $appt['patient_name']; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Patient ID</label>
+                            <input type="text" id="patient_id" name="patient_id" class="form-control" readonly required>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">Reason for Visit</label>
+                            <input type="text" id="reason" class="form-control" readonly>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Patient ID</label>
-                    <input type="text" id="patient_id" name="patient_id" class="form-control" readonly required>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Symptoms</label>
+                            <textarea name="symptoms" class="form-control" rows="3" required placeholder="Describe the observed symptoms..."></textarea>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Diagnosis</label>
+                            <textarea name="diagnosis" class="form-control" rows="3" required placeholder="Enter diagnosis..."></textarea>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Reason</label>
-                    <input type="text" id="reason" class="form-control" readonly required>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Treatment</label>
+                            <textarea name="treatment" class="form-control" rows="3" placeholder="Describe treatment plan..."></textarea>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Medications</label>
+                            <textarea name="medications" class="form-control" rows="3" placeholder="List prescribed medications..."></textarea>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Symptoms</label>
-                    <textarea name="symptoms" class="form-control" rows="2" required></textarea>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Additional Notes</label>
+                            <textarea name="notes" class="form-control" rows="3" placeholder="Any additional notes or observations..."></textarea>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Follow Up Date</label>
+                            <input type="date" name="follow_up_date" class="form-control">
+                        </div>
+                    </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Diagnosis</label>
-                    <textarea name="diagnosis" class="form-control" rows="2" required></textarea>
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" name="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Save Health Record
+                    </button>
+                    <a href="dashboard.php" class="btn btn-secondary">
+                        <i class="fas fa-times me-2"></i>Cancel
+                    </a>
                 </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Treatment</label>
-                    <textarea name="treatment" class="form-control" rows="2"></textarea>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Medications</label>
-                    <textarea name="medications" class="form-control" rows="2"></textarea>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Notes</label>
-                    <textarea name="notes" class="form-control" rows="2"></textarea>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Follow Up Date</label>
-                    <input type="date" name="follow_up_date" class="form-control">
-                </div>
-
-                <button type="submit" name="submit" class="btn btn-primary">Submit</button>
-                <a href="dashboard.php" class="btn btn-secondary">Cancel</a>
             </form>
         </div>
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 function autoFill() {
     const select = document.getElementById('appointment_id');

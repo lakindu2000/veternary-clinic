@@ -1,62 +1,87 @@
 <?php
+require_once '../connection.php';
 session_start();
 
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'doctor') {
+// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
     exit();
 }
 
-require_once '../connection.php';
-
+// Initialize variables
 $user_id = $_SESSION['user_id'];
-$message = "";
+$error = '';
+$success = '';
+$user = [];
 
-// Handle form submission for updates
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_changes'])) {
-    $name = $_POST['name'];
-    $specialization = $_POST['specialization'];
-    $phone = $_POST['phone'];
-    $address = $_POST['address'];
-    $specification = $_POST['specification'];
+// Get user data
+$user_stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+$user_stmt->bind_param('i', $user_id);
+$user_stmt->execute();
+$user = $user_stmt->get_result()->fetch_assoc();
 
-    $photoPath = '';
-    if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
-        $targetDir = "../uploads/";
-        if (!is_dir($targetDir)) {
-            mkdir($targetDir, 0777, true);
+// Handle profile photo upload
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['profile_photo'])) {
+    $target_dir = "../uploads/profile_photos/";
+    if (!file_exists($target_dir)) {
+        mkdir($target_dir, 0777, true);
+    }
+    
+    // Generate unique filename
+    $file_extension = pathinfo($_FILES["profile_photo"]["name"], PATHINFO_EXTENSION);
+    $target_file = $target_dir . "profile_" . $user_id . "." . $file_extension;
+    
+    // Check if image file is a actual image
+    $check = getimagesize($_FILES["profile_photo"]["tmp_name"]);
+    if ($check === false) {
+        $error = "File is not an image.";
+    } elseif ($_FILES["profile_photo"]["size"] > 500000) {
+        $error = "Sorry, your file is too large (max 500KB).";
+    } elseif (!in_array(strtolower($file_extension), ['jpg', 'png', 'jpeg', 'gif'])) {
+        $error = "Sorry, only JPG, JPEG, PNG & GIF files are allowed.";
+    } elseif (move_uploaded_file($_FILES["profile_photo"]["tmp_name"], $target_file)) {
+        // Update database with new photo path
+        $stmt = $conn->prepare("UPDATE users SET profile_photo = ? WHERE id = ?");
+        $stmt->bind_param('si', $target_file, $user_id);
+        if ($stmt->execute()) {
+            $success = "Profile photo updated successfully.";
+            $user['profile_photo'] = $target_file; // Update local user data
+        } else {
+            $error = "Error updating profile photo in database.";
         }
-
-        $fileName = basename($_FILES["photo"]["name"]);
-        $targetFile = $targetDir . uniqid() . "_" . $fileName;
-
-        if (move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFile)) {
-            $photoPath = $targetFile;
-        }
-    }
-
-    $query = "UPDATE doctors SET name=?, specialization=?, phone=?, address=?, specification=?";
-    if ($photoPath !== '') {
-        $query .= ", photo=?";
-    }
-    $query .= " WHERE user_id=?";
-
-    $stmt = $conn->prepare($query);
-    if ($photoPath !== '') {
-        $stmt->bind_param("ssssssi", $name, $specialization, $phone, $address, $specification, $photoPath, $user_id);
     } else {
-        $stmt->bind_param("sssssi", $name, $specialization, $phone, $address, $specification, $user_id);
+        $error = "Sorry, there was an error uploading your file.";
     }
-
-    if ($stmt->execute()) {
-        $message = "Profile updated successfully.";
-    } else {
-        $message = "Failed to update profile.";
-    }
-    $stmt->close();
 }
 
-// Fetch doctor data
-$stmt = $conn->prepare("SELECT * FROM doctors WHERE user_id = ?");
+// Handle password change
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
+    $current_password = $_POST['current_password'];
+    $new_password = $_POST['new_password'];
+    $confirm_password = $_POST['confirm_password'];
+    
+    // Verify current password
+    if (!password_verify($current_password, $user['password'])) {
+        $error = "Current password is incorrect.";
+    } elseif ($new_password !== $confirm_password) {
+        $error = "New passwords do not match.";
+    } elseif (strlen($new_password) < 8) {
+        $error = "Password must be at least 8 characters long.";
+    } else {
+        // Update password
+        $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+        $stmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
+        $stmt->bind_param('si', $hashed_password, $user_id);
+        if ($stmt->execute()) {
+            $success = "Password changed successfully.";
+        } else {
+            $error = "Error updating password.";
+        }
+    }
+}
+
+// Fetch doctor data for navbar display
+$stmt = $conn->prepare("SELECT name FROM doctors WHERE user_id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $doctor = $stmt->get_result()->fetch_assoc();
@@ -68,161 +93,392 @@ $conn->close();
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Doctor Profile</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Bootstrap -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vet Clinic - Doctor Profile</title>
     <style>
-        .profile-pic {
-            width: 150px;
-            height: 150px;
+        :root {
+            --primary-color: #4e8cff;
+            --secondary-color: #3a7bd5;
+            --accent-color: #ff7e5f;
+            --light-bg: #f8fafc;
+            --dark-text: #2d3748;
+            --light-text: #f8fafc;
+            --success-color: #48bb78;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--light-bg);
+            color: var(--dark-text);
+        }
+        
+        .sidebar {
+            height: 100vh;
+            width: 250px;
+            background: #ffffff;
+            box-shadow: var(--card-shadow);
+            position: fixed;
+            padding-top: 70px;
+            left: 0;
+            top: 0;
+            z-index: 100;
+            overflow-y: auto;
+        }
+        
+        .profile-img {
+            width: 50px;
+            height: 50px;
             object-fit: cover;
             border-radius: 50%;
-            border: 4px solid #4e8cff;
+            border: 2px solid white;
         }
-        .upload-label {
-            font-size: 0.9rem;
+        
+        .sidebar .link {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0;
+            margin-bottom: 0;
+            font-weight: 600;
+            color: var(--dark-text);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        
+        .sidebar .link:hover {
+            background-color: rgba(78, 140, 255, 0.05);
+            color: var(--primary-color);
+        }
+        
+        .sidebar .link.active {
+            background-color: rgba(78, 140, 255, 0.1);
+            color: var(--primary-color);
+        }
+        
+        .sidebar .link i {
+            margin-right: 1rem;
+            width: 20px;
+            text-align: center;
+            color: inherit;
+        }
+        
+        .navbar {
+            background: #4e8cff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            padding: 0.5rem 2rem;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 70px;
+        }
+        
+        .admin-info {
+            display: flex;
+            align-items: center;
+            margin-left: 35px;
+        }
+        
+        .admin-name-nav {
+            font-weight: 400;
+            color: white;
+            font-size: 20px;
+            margin-left: 15px;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            padding-top: 70px;
+            min-height: 100vh;
+            width: calc(100% - 250px);
+        }
+        
+        .content-wrapper {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .profile-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+        
+        .profile-section, .password-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            padding: 1.5rem;
+        }
+        
+        .profile-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .profile-photo-container {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+        
+        .profile-photo {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--primary-color);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .profile-photo:hover {
+            opacity: 0.8;
+            transform: scale(1.03);
+        }
+        
+        .profile-photo-upload {
+            display: none;
+        }
+        
+        .profile-details {
+            width: 100%;
+        }
+        
+        .detail-row {
+            display: flex;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            width: 120px;
+            color: var(--dark-text);
+        }
+        
+        .detail-value {
+            flex: 1;
             color: #555;
         }
-        input[readonly], textarea[readonly] {
-            background-color: #f8f9fa;
+        
+        .form-label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--dark-text);
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            padding: 0.5rem 1.5rem;
+        }
+        
+        .alert {
+            margin-bottom: 1.5rem;
+        }
+        
+        .password-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .password-section h4 {
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+        
+        .user-name {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--dark-text);
+        }
+        
+        .user-role {
+            font-size: 0.9rem;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .doctor-details-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 992px) {
+            .profile-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                width: 200px;
+            }
+            
+            .main-content {
+                margin-left: 200px;
+                width: calc(100% - 200px);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
         }
     </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="bg-light">
-
-<!-- Header -->
-<div class="row g-0 align-items-center" style="background-color: #4e8cff; min-height: 120px;">
-    <div class="col-md-1 text-center">
-        <!-- <img src="<?php echo htmlspecialchars($doctor['photo'] ?? '../assets/default-avatar.png'); ?>" class="doctor-photo mt-3 mb-3 profile-pic" alt="Doctor Photo"> -->
+<body>
+    <div class="navbar">
+        <div class="admin-info">
+            <img src="<?= htmlspecialchars($user['profile_photo'] ?? '../assets/default-profile.jpg') ?>" class="profile-img">
+            <span class="admin-name-nav">Dr. <?= htmlspecialchars($doctor['name'] ?? $user['name'] ?? 'Doctor') ?></span>
+        </div>
     </div>
-    <div class="col-md-11 d-flex flex-column justify-content-center align-items-center text-white">
-        <h3 class="fw-bold">Welcome, Dr.<?php echo htmlspecialchars($doctor['name']); ?></h3>
-        <p class="mb-0">Here is your activity summary for today.</p>
+    
+    <div class="sidebar">
+        <div class="w-100 d-flex flex-column align-items-start">
+            <a class="link" href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <a class="link active" href="profile.php"><i class="fas fa-user"></i> Profile</a>
+            <a class="link" href="patients.php"><i class="fas fa-paw"></i> Patients</a>
+            <a class="link" href="add_health.php"><i class="fas fa-heartbeat"></i> Add Health Details</a>
+            <a class="link" href="../logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
     </div>
-</div>
 
-<!-- Layout -->
-<div class="row g-0 min-vh-100">
-    <!-- Sidebar -->
-    <div class="col-3 bg-white shadow-sm">
-        <div class="p-3">
-            <div class="list-group list-group-flush">
-                <a href="dashboard.php" class="list-group-item list-group-item-action border-0 mb-2">
-                    <i class="fas fa-home me-2"></i> Dashboard
-                </a>
-                <a href="profile.php" class="list-group-item list-group-item-action active border-0 mb-2">
-                    <i class="fas fa-user me-2"></i> Profile View
-                </a>
-                <a href="patients.php" class="list-group-item list-group-item-action border-0 mb-2">
-                    <i class="fas fa-users me-2"></i> Patients
-                </a>
-                <a href="add_health.php" class="list-group-item list-group-item-action border-0 mb-2">
-                    <i class="fas fa-notes-medical me-2"></i> Add Health Details
-                </a>
-                <a href="../logout.php" class="list-group-item list-group-item-action border-0 mb-2 text-danger">
-                    <i class="fas fa-sign-out-alt me-2"></i> Log Out
-                </a>
+    <div class="main-content">
+        <div class="content-wrapper">
+            <?php if ($error): ?>
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <?= $error ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            <?php endif; ?>
+            
+            <?php if ($success): ?>
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <?= $success ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            <?php endif; ?>
+            
+            <div class="profile-container">
+                <!-- Left Column - User Profile Details -->
+                <div class="profile-section">
+                    <div class="profile-header">
+                        <form method="post" enctype="multipart/form-data" id="profile-photo-form">
+                            <div class="profile-photo-container">
+                                <label for="profile-photo-upload">
+                                    <img src="<?= htmlspecialchars($user['profile_photo'] ?? '../assets/default-profile.jpg') ?>" 
+                                         class="profile-photo" 
+                                         id="profile-photo-preview">
+                                    <input type="file" 
+                                           id="profile-photo-upload" 
+                                           name="profile_photo" 
+                                           class="profile-photo-upload" 
+                                           accept="image/*">
+                                </label>
+                            </div>
+                        </form>
+                        <h2 class="user-name"><?= htmlspecialchars($user['email'] ?? 'Doctor') ?></h2>
+                        <span class="user-role badge bg-primary"><?= htmlspecialchars(ucfirst($user['role'] ?? 'doctor')) ?></span>
+                    </div>
+                    
+                    <div class="profile-details">
+                        <div class="detail-row">
+                            <div class="detail-label">Email:</div>
+                            <div class="detail-value"><?= htmlspecialchars($user['email'] ?? 'Not set') ?></div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Role:</div>
+                            <div class="detail-value"><?= htmlspecialchars(ucfirst($user['role'] ?? 'doctor')) ?></div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Member Since:</div>
+                            <div class="detail-value"><?= date('M j, Y', strtotime($user['created_at'] ?? 'now')) ?></div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Last Login:</div>
+                            <div class="detail-value"><?= date('M j, Y g:i A', strtotime($user['last_login'] ?? 'now')) ?></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Column - Password Change -->
+                <div class="password-section">
+                    <h4>Change Password</h4>
+                    <form method="post" class="password-form">
+                        <div class="mb-3">
+                            <label for="current_password" class="form-label">Current Password</label>
+                            <input type="password" class="form-control" id="current_password" name="current_password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                        </div>
+                        <div class="mt-3">
+                            <button type="submit" name="change_password" class="btn btn-primary w-100">Update Password</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Profile Content -->
-    <div class="col-9 p-4">
-        <div class="card shadow-sm p-4">
-            <h4 class="mb-3">Doctor Profile</h4>
-
-            <?php if (!empty($message)): ?>
-                <div class="alert alert-info"><?php echo $message; ?></div>
-            <?php endif; ?>
-
-            <form method="POST" enctype="multipart/form-data" id="profileForm">
-                <div class="mb-4 text-center">
-                    <img src="<?php echo $doctor['photo'] ? htmlspecialchars($doctor['photo']) : '../assets/default-avatar.png'; ?>" class="profile-pic mb-2" alt="Profile Picture">
-                    <div class="upload-label w-25 mx-auto text-center">
-                        <input type="file" name="photo" id="photoInput" class="form-control form-control-sm d-none">
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label>ID</label>
-                        <input type="text" name="id" class="form-control" value="<?php echo $doctor['id']; ?>" readonly>
-                    </div>
-                    <div class="col-md-6">
-                        <label>Name</label>
-                        <input type="text" name="name" class="form-control" value="<?php echo htmlspecialchars($doctor['name']); ?>" readonly>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label>Specialization</label>
-                        <input type="text" name="specialization" class="form-control" value="<?php echo htmlspecialchars($doctor['specialization']); ?>" readonly>
-                    </div>
-                    <div class="col-md-6">
-                        <label>Phone</label>
-                        <input type="text" name="phone" class="form-control" style="max-width: 300px;" value="<?php echo htmlspecialchars($doctor['phone']); ?>" readonly>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-12">
-                        <label>Address</label>
-                        <textarea name="address" class="form-control" rows="2" style="max-width: 500px;" readonly><?php echo htmlspecialchars($doctor['address']); ?></textarea>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="md-12">
-                        <label>Specification</label>
-                        <textarea name="specification" class="form-control" rows="2" readonly><?php echo htmlspecialchars($doctor['specification']); ?></textarea>
-                    </div>
-                </div>
-
-                <div class="d-flex justify-content-end">
-                    <button type="button" class="btn btn-primary me-2 w-25" id="editBtn">Edit</button>
-                    <button type="submit" name="save_changes" class="btn btn-success me-2 d-none" id="saveBtn">Save Changes</button>
-                    <button type="button" class="btn btn-secondary d-none" id="cancelBtn">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Script -->
-<script>
-    const editBtn = document.getElementById('editBtn');
-    const saveBtn = document.getElementById('saveBtn');
-    const cancelBtn = document.getElementById('cancelBtn');
-    const form = document.getElementById('profileForm');
-    const inputs = form.querySelectorAll('input[name]:not([name="id"]):not([type="file"]), textarea[name]');
-
-    let initialValues = [];
-
-    editBtn.addEventListener('click', () => {
-        inputs.forEach((input, i) => {
-            initialValues[i] = input.value;
-            input.removeAttribute('readonly');
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Auto-submit profile photo when selected
+        document.getElementById('profile-photo-upload').addEventListener('change', function() {
+            if (this.files.length > 0) {
+                document.getElementById('profile-photo-form').submit();
+            }
         });
-        document.getElementById('photoInput').classList.remove('d-none');
-        editBtn.classList.add('d-none');
-        saveBtn.classList.remove('d-none');
-        cancelBtn.classList.remove('d-none');
-    });
 
-    cancelBtn.addEventListener('click', () => {
-        inputs.forEach((input, i) => {
-            input.value = initialValues[i];
-            input.setAttribute('readonly', true);
+        // Preview profile photo before upload
+        document.getElementById('profile-photo-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    document.getElementById('profile-photo-preview').src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
         });
-        document.getElementById('photoInput').classList.add('d-none');
-        editBtn.classList.remove('d-none');
-        saveBtn.classList.add('d-none');
-        cancelBtn.classList.add('d-none');
-    });
-</script>
+    </script>
 
 </body>
 </html>
