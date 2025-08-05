@@ -15,6 +15,31 @@ $user_stmt->bind_param('i', $user_id);
 $user_stmt->execute();
 $current_user = $user_stmt->get_result()->fetch_assoc();
 
+// Check if user exists and is a doctor
+if (!$current_user || $current_user['role'] !== 'doctor') {
+    session_destroy();
+    header("Location: ../login.php");
+    exit();
+}
+
+$doctorName = '';
+$doctorId = 0;
+
+// Fetch doctor data
+$sql = "SELECT d.name, d.id FROM doctors d WHERE d.user_id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result->num_rows === 1) {
+    $doctor = $result->fetch_assoc();
+    $doctorName = $doctor['name'];
+    $doctorId = $doctor['id'];
+} else {
+    $doctorName = $current_user['name'] ?? "Doctor";
+}
+$stmt->close();
+
 // Initialize search variables
 $search_owner_name = $_GET['owner_name'] ?? '';
 $search_owner_phone = $_GET['owner_phone'] ?? '';
@@ -145,6 +170,12 @@ if (isset($_GET['view_id'])) {
             height: 70px;
         }
         
+        .admin-info {
+            display: flex;
+            align-items: center;
+            margin-left: 35px;
+        }
+        
         .profile-img {
             width: 50px;
             height: 50px;
@@ -201,7 +232,7 @@ if (isset($_GET['view_id'])) {
     <div class="navbar">
         <div class="admin-info">
             <img src="<?= htmlspecialchars($current_user['profile_photo'] ?? '../assets/default-profile.jpg') ?>" class="profile-img">
-            <span class="admin-name-nav"><?= htmlspecialchars($current_user['name'] ?? 'Admin') ?></span>
+            <span class="admin-name-nav">Dr. <?= htmlspecialchars($doctorName ?? 'Doctor') ?></span>
         </div>
     </div>
     
